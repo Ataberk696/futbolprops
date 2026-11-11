@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #111110;
+  --color-surface: #1a1a19;
+  --color-raised: #262624;
+  --color-hair: rgba(255, 255, 255, 0.1);
+  --color-grid: #2c2c2a;
+  --color-ink: #ededeb;
+  --color-muted: #a3a29b;
+  --color-faint: #73726c;
+  --color-good: #0ca30c;
+  --color-bad: #d03b3b;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-feature-settings: "tnum";
+}
