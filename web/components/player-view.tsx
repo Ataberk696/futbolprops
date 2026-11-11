@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   STATS, autoLine, fmt1, fmtDate, fmtPct, hitRate, mean, median,
@@ -11,14 +12,19 @@ type Venue = "all" | "home" | "away";
 
 export function PlayerView({
   player,
-  teams,
-  initialStat,
+  team,
+  opp,
+  teamNames,
 }: {
   player: PlayerData;
-  teams: Record<string, TeamData>;
-  initialStat: number;
+  /** Oyuncunun takımı ve sıradaki rakibi. */
+  team?: TeamData;
+  opp?: TeamData;
+  /** Maç dökümündeki rakiplerin adları; sayfa boyutu küçük kalsın diye yalnızca adlar gelir. */
+  teamNames: Record<string, string>;
 }) {
-  const [si, setSi] = useState(initialStat);
+  const initialKey = useSearchParams().get("stat");
+  const [si, setSi] = useState(() => Math.max(0, STATS.findIndex((s) => s.key === initialKey)));
   const [side, setSide] = useState<Side>("over");
   const [range, setRange] = useState(10);
   const [venue, setVenue] = useState<Venue>("all");
@@ -26,8 +32,6 @@ export function PlayerView({
   const [manual, setManual] = useState<Record<number, number>>({});
 
   const stat = STATS[si];
-  const team = teams[player.teamId];
-  const opp = team?.next ? teams[team.next.oppId] : undefined;
 
   const auto = autoLine(player.games.map((g) => g.v[si]));
   const line = manual[si] ?? auto;
@@ -121,7 +125,7 @@ export function PlayerView({
           </ul>
         </div>
         {shown.length ? (
-          <BarChart games={[...shown].reverse()} si={si} line={line} side={side} teams={teams} label={stat.label} />
+          <BarChart games={[...shown].reverse()} si={si} line={line} side={side} teamNames={teamNames} label={stat.label} />
         ) : (
           <p className="py-10 text-center text-sm text-muted">Bu süzgeçte maç yok.</p>
         )}
@@ -144,7 +148,7 @@ export function PlayerView({
               <tr key={g.date + g.oppId} className="border-b border-hair/60 last:border-0">
                 <td className="px-3 py-2 text-muted">{fmtDate(g.date)} {g.date.slice(0, 4)}</td>
                 <td className="px-3 py-2">
-                  {teams[g.oppId]?.name ?? "–"} <span className="text-xs text-muted">{g.home ? "İç saha" : "Deplasman"}</span>
+                  {teamNames[g.oppId] ?? "–"} <span className="text-xs text-muted">{g.home ? "İç saha" : "Deplasman"}</span>
                 </td>
                 <td className="px-3 py-2 text-right text-muted">{g.min ?? "–"}</td>
                 {g.v.map((v, i) => (
@@ -173,13 +177,13 @@ const shortName = (name: string) => name.replace(/^(FC|CF|AFC|RCD|RC|CA|UD|SD) /
 
 /** Eskiden yeniye maç başına bir çubuk; çizginin tuttuğu maçlar yeşil, tutmayanlar kırmızı. */
 function BarChart({
-  games, si, line, side, teams, label,
+  games, si, line, side, teamNames, label,
 }: {
   games: Game[];
   si: number;
   line: number;
   side: Side;
-  teams: Record<string, TeamData>;
+  teamNames: Record<string, string>;
   label: string;
 }) {
   const top = Math.max(...games.map((g) => g.v[si]), Math.ceil(line), 1);
@@ -204,7 +208,7 @@ function BarChart({
             {games.map((g) => {
               const v = g.v[si];
               const hit = side === "over" ? v > line : v < line;
-              const opp = teams[g.oppId]?.name ?? "?";
+              const opp = teamNames[g.oppId] ?? "?";
               return (
                 <div key={g.date + g.oppId} className="group relative flex h-full max-w-12 flex-1 items-end justify-center">
                   <div
@@ -225,7 +229,7 @@ function BarChart({
         <div className="mt-1.5 flex justify-around gap-0.5 text-[10px] text-faint" aria-hidden>
           {games.map((g) => (
             <span key={g.date + g.oppId} className="max-w-12 flex-1 truncate text-center">
-              {shortName(teams[g.oppId]?.name ?? "?")}
+              {shortName(teamNames[g.oppId] ?? "?")}
             </span>
           ))}
         </div>

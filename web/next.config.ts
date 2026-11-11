@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
+// Site statik dosyalara derlenir (GitHub Pages). Veri, derleme anında data/props.db dosyasından okunur.
+// GitHub Pages'te site /futbolprops altında yayınlandığı için iş akışı BASE_PATH verir; yerelde boştur.
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  partialPrefetching: true,
+  output: "export",
+  trailingSlash: true,
+  basePath: process.env.BASE_PATH || undefined,
   turbopack: {
     rules: {
       "*.css": {

@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { DataTable, type Column, type DataRow } from "@/components/data-table";
 import { getLeagues, getTeamMatches, getTeams } from "@/lib/data";
 import { mean } from "@/lib/stats";
@@ -29,15 +27,12 @@ export default function Page() {
     <>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">Takımlar</h1>
       <p className="mb-5 text-sm text-muted">Güncel sezonda maç başı korner, kart, faul ve şut ortalamaları.</p>
-      <Suspense fallback={<p className="text-sm text-muted">Yükleniyor…</p>}>
-        <Content />
-      </Suspense>
+      <Content />
     </>
   );
 }
 
-async function Content() {
-  await connection();
+function Content() {
   const teams = getTeams(new Date().toISOString().slice(0, 10));
   const totals = new Map<string, number[]>();
   for (const m of getTeamMatches()) {

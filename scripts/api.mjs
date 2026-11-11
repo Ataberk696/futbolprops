@@ -2,13 +2,23 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const envPath = fileURLToPath(new URL("../.env", import.meta.url));
-const match = readFileSync(envPath, "utf8").match(/^\s*PITCHAPI_KEY\s*=\s*["']?([^"'\s]+)/m);
-if (!match) throw new Error(".env içinde PITCHAPI_KEY bulunamadı");
+// Anahtar önce ortam değişkeninden (GitHub Actions), yoksa yereldeki .env dosyasından okunur.
+function readKey() {
+  if (process.env.PITCHAPI_KEY) return process.env.PITCHAPI_KEY.trim();
+  const envPath = fileURLToPath(new URL("../.env", import.meta.url));
+  let text = "";
+  try {
+    text = readFileSync(envPath, "utf8");
+  } catch {}
+  const match = text.match(/^\s*PITCHAPI_KEY\s*=\s*["']?([^"'\s]+)/m);
+  if (!match) throw new Error("PITCHAPI_KEY bulunamadı (ortam değişkeni ya da .env)");
+  return match[1];
+}
+const key = readKey();
 
 export async function api(path) {
   const res = await fetch("https://api.pitchapi.dev" + path, {
-    headers: { "X-API-KEY": match[1] },
+    headers: { "X-API-KEY": key },
   });
   const text = await res.text();
   let body;

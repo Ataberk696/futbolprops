@@ -1,0 +1,74 @@
+name: Veriyi güncelle ve yayınla
+
+# Her gün PitchAPI'den yeni maçları çeker, siteyi statik olarak derler ve GitHub Pages'e yayınlar.
+on:
+  schedule:
+    - cron: "0 5 * * *" # her gün 05:00 UTC (Türkiye 08:00)
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # Veritabanı depoda tutulmaz; önceki çalışmadan geri yüklenir, böylece yalnızca yeni maçlar çekilir.
+      # Önbellek yoksa sezonun tamamı baştan indirilir (birkaç dakika).
+      - name: Veritabanını geri yükle
+        uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: props-db-${{ github.run_id }}
+          restore-keys: props-db-
+
+      - name: Veriyi eşitle
+        run: node scripts/sync.mjs
+        env:
+          PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
+
+      - name: Veritabanını sakla
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: props-db-${{ github.run_id }}
+
+      - name: Bağımlılıkları kur
+        run: npm ci
+        working-directory: web
+
+      - name: Siteyi derle
+        run: npm run build
+        working-directory: web
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

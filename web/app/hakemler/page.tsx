@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { DataTable, type Column, type DataRow } from "@/components/data-table";
 import { getLeagues, getRefereeMatches, type RefereeMatch } from "@/lib/data";
 import { mean } from "@/lib/stats";
@@ -26,15 +24,12 @@ export default function Page() {
       <p className="mb-5 text-sm text-muted">
         Hakemlerin yönettiği maçlarda kart ve faul ortalamaları. İkinci sarıdan çıkan kırmızıda sarı kart sayılmaz.
       </p>
-      <Suspense fallback={<p className="text-sm text-muted">Yükleniyor…</p>}>
-        <Content />
-      </Suspense>
+      <Content />
     </>
   );
 }
 
-async function Content() {
-  await connection();
+function Content() {
   const groups = new Map<string, RefereeMatch[]>();
   for (const m of getRefereeMatches()) {
     const key = `${m.league_id}|${m.referee}`;
