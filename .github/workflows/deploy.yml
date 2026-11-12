@@ -12,6 +12,10 @@ on:
         description: "Yalnızca bu PitchAPI yolunu sorgula ve yazdır (örn. v1/leagues); boşsa normal yayın"
         required: false
         default: ""
+      api_filter:
+        description: "Çıktıda yalnızca bu metni içeren satırları (ve çevresini) göster; boşsa tamamı"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -32,9 +36,10 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: node scripts/api.mjs "$API_PATH"
+      - run: node scripts/api.mjs "$API_PATH" | grep -i -B3 -A4 -- "$API_FILTER"
         env:
           API_PATH: ${{ inputs.api_path }}
+          API_FILTER: ${{ inputs.api_filter }}
           PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
 
   build:
