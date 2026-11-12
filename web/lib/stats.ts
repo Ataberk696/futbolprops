@@ -5,16 +5,18 @@ export type Agg = Record<AggKey, number>;
 
 /** Oyuncu propları. Game.v dizisi bu sırayla tutulur. */
 export const STATS = [
-  { key: "shots", label: "Şut", oppSide: "A", oppKey: "shots", oppLabel: "Rakibin maç başına yediği şut" },
-  { key: "sot", label: "İsabetli şut", oppSide: "A", oppKey: "sot", oppLabel: "Rakibin maç başına yediği isabetli şut" },
-  { key: "fouls", label: "Faul", oppSide: "A", oppKey: "fouls", oppLabel: "Rakibe karşı maç başına yapılan faul" },
-  { key: "was_fouled", label: "Yediği faul", oppSide: "F", oppKey: "fouls", oppLabel: "Rakibin maç başına yaptığı faul" },
-  { key: "cards", label: "Kart", oppSide: "A", oppKey: "cards", oppLabel: "Rakibin rakiplerine maç başına çıkan kart" },
-  { key: "goals", label: "Gol", oppSide: "A", oppKey: "goals", oppLabel: "Rakibin maç başına yediği gol" },
-  { key: "assists", label: "Asist", oppSide: "A", oppKey: "goals", oppLabel: "Rakibin maç başına yediği gol" },
+  { key: "shots", label: "Şut", short: "Şut", oppSide: "A", oppKey: "shots", oppLabel: "Rakibin maç başına yediği şut" },
+  { key: "sot", label: "İsabetli şut", short: "İŞ", oppSide: "A", oppKey: "sot", oppLabel: "Rakibin maç başına yediği isabetli şut" },
+  { key: "fouls", label: "Faul", short: "Faul", oppSide: "A", oppKey: "fouls", oppLabel: "Rakibe karşı maç başına yapılan faul" },
+  { key: "was_fouled", label: "Yediği faul", short: "YF", oppSide: "F", oppKey: "fouls", oppLabel: "Rakibin maç başına yaptığı faul" },
+  { key: "cards", label: "Kart", short: "Kart", oppSide: "A", oppKey: "cards", oppLabel: "Rakibin rakiplerine maç başına çıkan kart" },
+  { key: "goals", label: "Gol", short: "Gol", oppSide: "A", oppKey: "goals", oppLabel: "Rakibin maç başına yediği gol" },
+  { key: "assists", label: "Asist", short: "Ast", oppSide: "A", oppKey: "goals", oppLabel: "Rakibin maç başına yediği gol" },
 ] as const satisfies readonly {
   key: string;
   label: string;
+  /** Dar ekrandaki tablo başlığı. */
+  short: string;
   oppSide: "A" | "F";
   oppKey: AggKey;
   oppLabel: string;

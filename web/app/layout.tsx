@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 };
 
 const NAV = [
-  { href: "/", label: "Oyuncu propları" },
-  { href: "/takimlar", label: "Takımlar" },
-  { href: "/hakemler", label: "Hakemler" },
+  { href: "/", label: "Oyuncu propları", short: "Proplar" },
+  { href: "/takimlar", label: "Takımlar", short: "Takımlar" },
+  { href: "/hakemler", label: "Hakemler", short: "Hakemler" },
 ] as const;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -24,19 +24,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="tr" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <header className="sticky top-0 z-20 border-b border-hair bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
-            <Link href="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+          <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-6">
+            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[15px] font-semibold tracking-tight">
               <span className="size-2.5 rounded-full bg-good" aria-hidden />
               Futbol Props
             </Link>
-            <nav className="flex gap-1 text-sm">
+            <nav className="flex min-w-0 gap-0.5 overflow-x-auto whitespace-nowrap text-sm sm:gap-1">
               {NAV.map((n) => (
                 <Link
                   key={n.href}
                   href={n.href}
-                  className="rounded-md px-3 py-1.5 text-muted transition-colors hover:bg-raised hover:text-ink"
+                  className="rounded-md px-2 py-1.5 text-muted transition-colors hover:bg-raised hover:text-ink sm:px-3"
                 >
-                  {n.label}
+                  {/* Telefonda başlık tek satıra sığsın diye kısa ad. */}
+                  <span className="sm:hidden">{n.short}</span>
+                  <span className="hidden sm:inline">{n.label}</span>
                 </Link>
               ))}
             </nav>

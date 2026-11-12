@@ -98,8 +98,8 @@ export function PropsTable({
     });
   }, [players, teams, league, si, side, lineMode, minGames, minMinutes, search, sort, stat]);
 
-  const th = (key: SortKey, label: string, title?: string, align = "text-right") => (
-    <th scope="col" className={`px-3 py-2.5 font-medium ${align}`} title={title}>
+  const th = (key: SortKey, label: string, title?: string, align = "text-right", extra = "") => (
+    <th scope="col" className={`whitespace-nowrap px-1.5 py-2.5 font-medium sm:px-3 ${align} ${extra}`} title={title}>
       <button
         type="button"
         onClick={() => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "name" ? 1 : -1 }))}
@@ -158,9 +158,9 @@ export function PropsTable({
             {[0, 30, 45, 60, 75].map((n) => <option key={n} value={n}>{n === 0 ? "Hepsi" : `${n}+`}</option>)}
           </select>
         </Field>
-        <Field label="Ara">
+        <Field label="Ara" className="w-full sm:w-auto">
           <input
-            className={`${inputClass} w-56`}
+            className={`${inputClass} w-full sm:w-56`}
             placeholder="Oyuncu veya takım"
             value={search}
             onChange={(e) => reset(setSearch)(e.target.value)}
@@ -170,13 +170,13 @@ export function PropsTable({
       </div>
 
       <div className="overflow-x-auto rounded-xl bg-surface ring-1 ring-hair">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full text-sm sm:min-w-[860px]">
           <thead className="border-b border-hair text-xs text-muted">
             <tr>
               {th("name", "Oyuncu", undefined, "text-left")}
-              <th scope="col" className="px-3 py-2.5 text-left font-medium">Sıradaki maç</th>
+              <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Sıradaki maç</th>
               {th("line", "Çizgi", "Otomatik çizgi: son 10 maç ortalamasına en yakın buçuklu değer")}
-              {th("avg", "Ort.", "Son 10 maç ortalaması")}
+              {th("avg", "Ort.", "Son 10 maç ortalaması", "text-right", "hidden sm:table-cell")}
               {th("l5", "Son 5")}
               {th("l10", "Son 10")}
               {th("all", "Sezon")}
@@ -186,20 +186,24 @@ export function PropsTable({
           <tbody>
             {rows.slice(0, limit).map((r) => (
               <tr key={r.p.id} className="border-b border-hair/60 last:border-0 hover:bg-raised/60">
-                <td className="px-3 py-2">
+                {/* Telefonda oyuncu sütunu yatay kaydırmada sabit kalır; sıradaki maç adın altına yazılır. */}
+                <td className="sticky left-0 z-10 max-w-[7.75rem] bg-surface px-2 py-2 sm:static sm:max-w-none sm:bg-transparent sm:px-3">
                   <Link
                     href={`/player/${r.p.id}?stat=${stat.key}`}
                     prefetch={false}
                     className="flex items-center gap-3 hover:underline"
                   >
-                    <Avatar src={r.p.img} />
-                    <span className="flex flex-col">
-                      <span className="font-medium">{r.p.name}</span>
-                      <span className="text-xs text-muted">{r.team.name}</span>
+                    <span className="hidden sm:inline-flex"><Avatar src={r.p.img} /></span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-medium">{r.p.name}</span>
+                      <span className="truncate text-xs text-muted">{r.team.name}</span>
+                      <span className="truncate text-xs text-faint sm:hidden">
+                        {r.home ? "–" : "@"} {r.opp.name} · {fmtDate(r.date)}
+                      </span>
                     </span>
                   </Link>
                 </td>
-                <td className="px-3 py-2">
+                <td className="hidden px-3 py-2 sm:table-cell">
                   <span className="flex items-center gap-2">
                     <Avatar src={r.opp.img} size={20} round={false} />
                     <span className="flex flex-col">
@@ -208,15 +212,15 @@ export function PropsTable({
                     </span>
                   </span>
                 </td>
-                <td className="px-3 py-2 text-right font-medium">
+                <td className="whitespace-nowrap px-1.5 py-2 text-right font-medium sm:px-3">
                   <span className="text-xs font-normal text-muted">{side === "over" ? "Ü" : "A"} </span>
                   {fmt1(r.line)}
                 </td>
-                <td className="px-3 py-2 text-right text-muted">{fmt1(r.avg)}</td>
-                <td className="px-3 py-2 text-right"><RatePill rate={r.l5} /></td>
-                <td className="px-3 py-2 text-right"><RatePill rate={r.l10} /></td>
-                <td className="px-3 py-2 text-right"><RatePill rate={r.all} /></td>
-                <td className="px-3 py-2 text-right">
+                <td className="hidden px-3 py-2 text-right text-muted sm:table-cell">{fmt1(r.avg)}</td>
+                <td className="px-1.5 py-2 text-right sm:px-3"><RatePill rate={r.l5} /></td>
+                <td className="px-1.5 py-2 text-right sm:px-3"><RatePill rate={r.l10} /></td>
+                <td className="px-1.5 py-2 text-right sm:px-3"><RatePill rate={r.all} /></td>
+                <td className="whitespace-nowrap px-2 py-2 text-right sm:px-3">
                   {fmt1(r.oppVal)}
                   <span className="ml-1.5 text-xs text-muted">{r.oppRank}/{r.opp.leagueSize}</span>
                 </td>

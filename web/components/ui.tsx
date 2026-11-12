@@ -32,9 +32,9 @@ export function Seg<T extends string | number>({
   );
 }
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-faint">
+    <label className={`flex flex-col gap-1 text-xs text-faint ${className}`}>
       {label}
       {children}
     </label>
@@ -44,17 +44,17 @@ export function Field({ label, children }: { label: string; children: React.Reac
 export const inputClass =
   "h-9 rounded-lg bg-surface px-3 text-sm text-ink ring-1 ring-hair outline-none placeholder:text-faint focus:ring-2 focus:ring-muted";
 
-/** İsabet oranı hücresi: yüzde her zaman yazılı, arka plan tonu yalnızca yardımcı ipucu. */
+/** İsabet oranı hücresi: yüzde her zaman yazılı, arka plan tonu yalnızca yardımcı ipucu. Telefonda yer için tutan/maç sayısı gizlenir. */
 export function RatePill({ rate }: { rate: Rate }) {
   if (!rate.n) return <span className="text-faint">–</span>;
   const tone =
     rate.pct >= 0.7 ? "bg-good/25 ring-good/40" : rate.pct <= 0.3 ? "bg-bad/25 ring-bad/40" : "bg-raised ring-hair";
   return (
     <span
-      className={`inline-flex min-w-[4.5rem] items-baseline justify-center gap-1.5 rounded-md px-2 py-1 ring-1 ${tone}`}
+      className={`inline-flex min-w-[3rem] items-baseline justify-center gap-1.5 rounded-md px-1.5 py-1 ring-1 sm:min-w-[4.5rem] sm:px-2 ${tone}`}
     >
       <span className="font-medium text-ink">{fmtPct(rate.pct)}</span>
-      <span className="text-xs text-muted">
+      <span className="hidden text-xs text-muted sm:inline">
         {rate.hit}/{rate.n}
       </span>
     </span>

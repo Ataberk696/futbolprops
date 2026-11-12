@@ -48,16 +48,16 @@ export function PlayerView({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex items-center gap-4">
         <Avatar src={player.img} size={64} />
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{player.name}</h1>
-          <p className="flex items-center gap-2 text-sm text-muted">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{player.name}</h1>
+          <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
             {team && <Avatar src={team.img} size={18} round={false} />}
             {team?.name}
             {team?.next && opp && (
-              <span>
-                · Sıradaki: {opp.name} ({team.next.home ? "iç saha" : "deplasman"}, {fmtDate(team.next.date)})
+              <span className="w-full sm:w-auto">
+                <span className="hidden sm:inline">· </span>Sıradaki: {opp.name} ({team.next.home ? "iç saha" : "deplasman"}, {fmtDate(team.next.date)})
               </span>
             )}
           </p>
@@ -132,27 +132,36 @@ export function PlayerView({
       </section>
 
       <section className="overflow-x-auto rounded-xl bg-surface ring-1 ring-hair">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full whitespace-nowrap text-sm sm:min-w-[720px]">
           <thead className="border-b border-hair text-xs text-muted">
             <tr>
-              <th scope="col" className="px-3 py-2.5 text-left font-medium">Tarih</th>
-              <th scope="col" className="px-3 py-2.5 text-left font-medium">Rakip</th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">Dk</th>
+              <th scope="col" className="px-2 py-2.5 text-left font-medium sm:px-3">Tarih</th>
+              <th scope="col" className="px-1.5 py-2.5 text-left font-medium sm:px-3">Rakip</th>
+              <th scope="col" className="px-1.5 py-2.5 text-right font-medium sm:px-3">Dk</th>
               {STATS.map((s, i) => (
-                <th key={s.key} scope="col" className={`px-3 py-2.5 text-right font-medium ${i === si ? "text-ink" : ""}`}>{s.label}</th>
+                <th key={s.key} scope="col" title={s.label} className={`px-1.5 py-2.5 text-right font-medium sm:px-3 ${i === si ? "text-ink" : ""}`}>
+                  <span className="sm:hidden">{s.short}</span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {pool.map((g) => (
               <tr key={g.date + g.oppId} className="border-b border-hair/60 last:border-0">
-                <td className="px-3 py-2 text-muted">{fmtDate(g.date)} {g.date.slice(0, 4)}</td>
-                <td className="px-3 py-2">
-                  {teamNames[g.oppId] ?? "–"} <span className="text-xs text-muted">{g.home ? "İç saha" : "Deplasman"}</span>
+                <td className="px-2 py-2 text-muted sm:px-3">
+                  {fmtDate(g.date)}<span className="hidden sm:inline"> {g.date.slice(0, 4)}</span>
                 </td>
-                <td className="px-3 py-2 text-right text-muted">{g.min ?? "–"}</td>
+                <td className="px-1.5 py-2 sm:px-3">
+                  {/* Telefonda tüm istatistikler tek ekrana sığsın diye rakip üç harfle yazılır. */}
+                  <span className="sm:hidden" title={teamNames[g.oppId]}>{g.home ? "" : "@"}{shortName(teamNames[g.oppId] ?? "?")}</span>
+                  <span className="hidden sm:inline">
+                    {teamNames[g.oppId] ?? "–"} <span className="text-xs text-muted">{g.home ? "İç saha" : "Deplasman"}</span>
+                  </span>
+                </td>
+                <td className="px-1.5 py-2 text-right text-muted sm:px-3">{g.min ?? "–"}</td>
                 {g.v.map((v, i) => (
-                  <td key={i} className={`px-3 py-2 text-right ${i === si ? "font-medium text-ink" : "text-muted"}`}>{v}</td>
+                  <td key={i} className={`px-1.5 py-2 text-right sm:px-3 ${i === si ? "font-medium text-ink" : "text-muted"}`}>{v}</td>
                 ))}
               </tr>
             ))}
@@ -226,7 +235,7 @@ function BarChart({
           </div>
           <div className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-ink" style={{ bottom: pct(line) }} />
         </div>
-        <div className="mt-1.5 flex justify-around gap-0.5 text-[10px] text-faint" aria-hidden>
+        <div className={`mt-1.5 justify-around gap-0.5 text-[10px] text-faint ${games.length > 12 ? "hidden sm:flex" : "flex"}`} aria-hidden>
           {games.map((g) => (
             <span key={g.date + g.oppId} className="max-w-12 flex-1 truncate text-center">
               {shortName(teamNames[g.oppId] ?? "?")}

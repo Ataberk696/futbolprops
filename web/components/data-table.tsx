@@ -12,6 +12,9 @@ export type Column = {
 };
 export type DataRow = { id: string; leagueId: string; img?: string | null } & Record<string, string | number | null | undefined>;
 
+// İlk sütun (ad) yatay kaydırmada sabit kalır; dar ekranda hangi satıra bakıldığı kaybolmasın.
+const STICKY = "sticky left-0 z-10 bg-surface";
+
 /** Lig sekmeli, sütun başlığından sıralanabilen genel tablo. */
 export function DataTable({
   columns, rows, leagues, initialSort,
@@ -49,8 +52,8 @@ export function DataTable({
         <table className="w-full text-sm" style={{ minWidth: columns.length * 84 }}>
           <thead className="border-b border-hair text-xs text-muted">
             <tr>
-              {columns.map((c) => (
-                <th key={c.key} scope="col" title={c.title} className={`px-3 py-2.5 font-medium ${c.kind === "text" ? "text-left" : "text-right"}`}>
+              {columns.map((c, i) => (
+                <th key={c.key} scope="col" title={c.title} className={`px-2 py-2.5 font-medium sm:px-3 ${c.kind === "text" ? "text-left" : "text-right"} ${i === 0 ? STICKY : ""}`}>
                   <button
                     type="button"
                     onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? (s.dir === 1 ? -1 : 1) : c.kind === "text" ? 1 : -1 }))}
@@ -67,7 +70,7 @@ export function DataTable({
             {sorted.map((r) => (
               <tr key={r.id} className="border-b border-hair/60 last:border-0 hover:bg-raised/60">
                 {columns.map((c, i) => (
-                  <td key={c.key} className={`px-3 py-2 ${c.kind === "text" ? "text-left" : "text-right"} ${i === 0 ? "font-medium" : ""}`}>
+                  <td key={c.key} className={`px-2 py-2 sm:px-3 ${c.kind === "text" ? "text-left" : "text-right"} ${i === 0 ? `font-medium ${STICKY}` : ""}`}>
                     {i === 0 && r.img !== undefined ? (
                       <span className="flex items-center gap-2.5">
                         <Avatar src={r.img} size={22} round={false} />
