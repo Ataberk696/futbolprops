@@ -7,6 +7,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      api_path:
+        description: "Yalnızca bu PitchAPI yolunu sorgula ve yazdır (örn. v1/leagues); boşsa normal yayın"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -18,7 +23,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Yeni lig eklerken kimlik bulmak gibi tek seferlik sorgular için; siteyi derlemez ve yayınlamaz.
+  api:
+    if: ${{ inputs.api_path }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: node scripts/api.mjs "$API_PATH"
+        env:
+          API_PATH: ${{ inputs.api_path }}
+          PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
+
   build:
+    if: ${{ !inputs.api_path }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -32,7 +52,7 @@ jobs:
       # Veritabanı depoda tutulmaz; önceki çalışmadan geri yüklenir, böylece yalnızca yeni maçlar çekilir.
       # Önbellek yoksa sezonun tamamı baştan indirilir (birkaç dakika).
       - name: Veritabanını geri yükle
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: data
           key: props-db-${{ github.run_id }}
@@ -44,7 +64,7 @@ jobs:
           PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
 
       - name: Veritabanını sakla
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: data
           key: props-db-${{ github.run_id }}
@@ -59,16 +79,18 @@ jobs:
         env:
           BASE_PATH: /${{ github.event.repository.name }}
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: web/out
 
   deploy:
     needs: build
+    # Yalnızca main yayınlanır; başka daldan elle çalıştırma yalnızca derlemeyi dener.
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
