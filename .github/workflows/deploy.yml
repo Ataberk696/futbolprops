@@ -88,6 +88,9 @@ jobs:
         with:
           path: web/out
 
+      - name: Veri özeti
+        run: node scripts/summary.mjs
+
   deploy:
     needs: build
     # Yalnızca main yayınlanır; başka daldan elle çalıştırma yalnızca derlemeyi dener.
