@@ -8,6 +8,7 @@ const LEAGUES = [
   { id: "l_4WFCIZ", name: "Premier League" },
   { id: "l_0ErfuF", name: "LaLiga" },
   { id: "l_0S1uaf", name: "Süper Lig" },
+  { id: "l_1Isor4", name: "Bundesliga" },
 ];
 
 const args = process.argv.slice(2);

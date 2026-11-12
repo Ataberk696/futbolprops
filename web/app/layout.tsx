@@ -10,7 +10,7 @@ const geistSans = Geist({
 
 export const metadata: Metadata = {
   title: "Futbol Props",
-  description: "Süper Lig, Premier League ve LaLiga oyuncu propları",
+  description: "Süper Lig, Premier League, LaLiga ve Bundesliga oyuncu propları",
 };
 
 const NAV = [
