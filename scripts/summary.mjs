@@ -8,7 +8,10 @@ const rows = openDb()
        sum(m.status = 'finished') AS biten, sum(m.details_at IS NOT NULL) AS detayli,
        sum(m.status = 'not_started') AS siradaki, max(CASE WHEN m.status = 'finished' THEN m.date END) AS son_mac,
        (SELECT count(DISTINCT s.player_id) FROM player_match_stats s JOIN matches x ON x.id = s.match_id
-        WHERE x.league_id = m.league_id AND x.season = m.season) AS oyuncu
+        WHERE x.league_id = m.league_id AND x.season = m.season) AS oyuncu,
+       (SELECT count(DISTINCT s.player_id) FROM player_match_stats s JOIN matches x ON x.id = s.match_id
+        JOIN players p ON p.id = s.player_id AND p.position IS NOT NULL
+        WHERE x.league_id = m.league_id AND x.season = m.season) AS mevkili
      FROM matches m JOIN leagues l ON l.id = m.league_id
      GROUP BY m.league_id, m.season ORDER BY l.name, m.season`,
   )

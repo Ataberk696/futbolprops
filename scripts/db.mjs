@@ -85,5 +85,13 @@ export function openDb() {
       PRIMARY KEY (match_id, team_id, period)
     );
   `);
+  // Sonradan eklenen sütunlar; var olan veritabanlarında da oluşsun diye ayrı eklenir.
+  addColumn(db, "players", "position", "INTEGER"); // 0 kaleci, 1 defans, 2 orta saha, 3 forvet
+  addColumn(db, "matches", "lineup_at", "TEXT"); // kadro (mevki) bilgisi çekildiyse zaman damgası
   return db;
+}
+
+function addColumn(db, table, column, type) {
+  const exists = db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column);
+  if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }

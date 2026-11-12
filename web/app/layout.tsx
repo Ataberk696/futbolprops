@@ -17,6 +17,7 @@ const NAV = [
   { href: "/", label: "Oyuncu propları", short: "Proplar" },
   { href: "/takimlar", label: "Takımlar", short: "Takımlar" },
   { href: "/hakemler", label: "Hakemler", short: "Hakemler" },
+  { href: "/fantezi", label: "Fantezi kadro", short: "Fantezi" },
 ] as const;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +28,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-6">
             <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[15px] font-semibold tracking-tight">
               <span className="size-2.5 rounded-full bg-good" aria-hidden />
-              Futbol Props
+              <span className="hidden sm:inline">Futbol Props</span>
+              <span className="sm:hidden">FP</span>
             </Link>
             <nav className="flex min-w-0 gap-0.5 overflow-x-auto whitespace-nowrap text-sm sm:gap-1">
               {NAV.map((n) => (

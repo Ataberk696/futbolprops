@@ -7,7 +7,8 @@ import { openDb } from "./db.mjs";
 const LEAGUES = [
   { id: "l_4WFCIZ", name: "Premier League" },
   { id: "l_0ErfuF", name: "LaLiga" },
-  { id: "l_0S1uaf", name: "Süper Lig" },
+  // lineups: maç kadrolarından oyuncu mevkileri de çekilir (fantezi kadro sayfası için).
+  { id: "l_0S1uaf", name: "Süper Lig", lineups: true },
   { id: "l_1Isor4", name: "Bundesliga" },
 ];
 
@@ -200,3 +201,41 @@ for (const { id } of pending) {
   await sleep(250);
 }
 console.log(`Bitti: ${done} maç işlendi, ${failed.length} hata.`);
+
+// Kadro yanıtının biçimine bağlı kalmamak için mevki taşıyan tüm oyuncu kayıtlarını toplar.
+function collectPositions(node, out = new Map()) {
+  if (Array.isArray(node)) {
+    for (const item of node) collectPositions(item, out);
+  } else if (node && typeof node === "object") {
+    if (typeof node.player_id === "string" && Number.isInteger(node.position_id)) out.set(node.player_id, node.position_id);
+    for (const value of Object.values(node)) collectPositions(value, out);
+  }
+  return out;
+}
+
+// Mevkiler: eskiden yeniye işlenir, böylece oyuncunun en son maçındaki mevkisi kalır.
+const lineupLeagues = LEAGUES.filter((l) => l.lineups).map((l) => l.id);
+const setPosition = db.prepare(`UPDATE players SET position = ? WHERE id = ?`);
+const setLineupAt = db.prepare(`UPDATE matches SET lineup_at = ? WHERE id = ?`);
+const lineupPending = db
+  .prepare(
+    `SELECT id FROM matches WHERE status = 'finished' AND details_at IS NOT NULL AND lineup_at IS NULL
+       AND league_id IN (${lineupLeagues.map(() => "?").join(",") || "NULL"}) ORDER BY date, time_utc`,
+  )
+  .all(...lineupLeagues)
+  .slice(0, limit);
+let lineupDone = 0;
+for (const { id } of lineupPending) {
+  try {
+    const positions = collectPositions(await get(`/v1/matches/${id}/lineups`));
+    transaction(() => {
+      for (const [playerId, position] of positions) setPosition.run(position, playerId);
+      setLineupAt.run(new Date().toISOString(), id);
+    });
+    lineupDone++;
+  } catch (err) {
+    console.log(`KADRO HATA ${id}: ${err.message.slice(0, 200)}`);
+  }
+  await sleep(250);
+}
+console.log(`Kadro: ${lineupDone}/${lineupPending.length} maç işlendi.`);

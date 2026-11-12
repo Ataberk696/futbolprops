@@ -204,3 +204,38 @@ export function getRefereeMatches(): RefereeMatch[] {
      GROUP BY m.id`,
   );
 }
+
+export type FantasyRow = {
+  player_id: string;
+  name: string;
+  image_url: string | null;
+  position: number | null;
+  team_id: string;
+  match_id: string;
+  date: string;
+  minutes: number | null;
+  goals: number;
+  assists: number;
+  saves: number;
+  yellow: number;
+  red: number;
+  /** Oyuncunun takımının o maçta yediği gol. */
+  conceded: number;
+};
+
+/** Bir ligin güncel sezonundaki tüm oyuncu-maç satırları, en yeni maç başta. */
+export function getFantasyRows(leagueName: string): FantasyRow[] {
+  return query<FantasyRow>(
+    `${CURRENT_SEASON}
+     SELECT s.player_id, p.name, p.image_url, p.position, s.team_id, s.match_id, m.date, s.minutes,
+       s.goals, s.assists, s.saves, s.yellow_cards AS yellow, s.red_cards AS red,
+       coalesce(CASE WHEN m.home_team_id = s.team_id THEN m.score_away ELSE m.score_home END, 0) AS conceded
+     FROM player_match_stats s
+     JOIN players p ON p.id = s.player_id
+     JOIN matches m ON m.id = s.match_id
+     JOIN leagues l ON l.id = m.league_id AND l.name = ?
+     JOIN cur ON cur.league_id = m.league_id AND cur.season = m.season
+     ORDER BY m.date DESC, m.time_utc DESC`,
+    leagueName,
+  );
+}
