@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BUDGET, POSITIONS, POS_SHORT, type Candidate, type NamedSquad } from "@/lib/fantasy";
-import { fmt1, fmtDate, fmtPct } from "@/lib/stats";
-import { Avatar, Seg } from "./ui";
+import { fmt1, fmtPct } from "@/lib/stats";
+import { Seg } from "./ui";
 
 export function FantasyView({ candidates, squads }: { candidates: Candidate[]; squads: NamedSquad[] }) {
   const [tab, setTab] = useState(squads[0]?.key ?? "");
@@ -40,20 +40,12 @@ export function FantasyView({ candidates, squads }: { candidates: Candidate[]; s
         <Stat label="Toplam fiyat" value={`${fmt1(squad.cost)}M`} sub={`bütçe ${BUDGET}M`} />
       </div>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-surface p-3 ring-1 ring-hair sm:p-4">
-        {[3, 2, 1, 0].map((p) => (
-          <div key={p}>
-            <h2 className="mb-1.5 text-xs text-faint">{POSITIONS[p]}</h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              {squad.starters.filter((c) => c.pos === p).map((c) => <Card key={c.id} c={c} captain={c.id === squad.captainId} />)}
-            </div>
-          </div>
-        ))}
-      </section>
-      <section className="rounded-xl bg-surface p-3 ring-1 ring-hair sm:p-4">
-        <h2 className="mb-1.5 text-xs text-faint">Yedekler</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {squad.bench.map((c) => <Card key={c.id} c={c} />)}
+      <Pitch starters={squad.starters} captainId={squad.captainId} />
+
+      <section className="rounded-xl bg-surface px-2 py-3 ring-1 ring-hair sm:px-4">
+        <h2 className="mb-2 px-1 text-xs text-faint">Yedekler</h2>
+        <div className="flex justify-around gap-1">
+          {squad.bench.map((c) => <Token key={c.id} c={c} />)}
         </div>
       </section>
 
@@ -138,25 +130,67 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-function Card({ c, captain = false }: { c: Candidate; captain?: boolean }) {
+/** İlk 11: kaleci üstte, forvetler altta; sahanın çizgileri yalnızca süs. */
+function Pitch({ starters, captainId }: { starters: Candidate[]; captainId: string }) {
+  return (
+    <section
+      aria-label="İlk 11"
+      className="relative overflow-hidden rounded-xl bg-[#13241a] ring-1 ring-hair"
+      style={{ backgroundImage: "repeating-linear-gradient(180deg, transparent 0 12.5%, rgba(255,255,255,0.025) 12.5% 25%)" }}
+    >
+      <div aria-hidden className="pointer-events-none absolute inset-2 rounded-md border border-white/15 sm:inset-3">
+        <div className="absolute left-1/2 top-0 h-[17%] w-[46%] -translate-x-1/2 border border-t-0 border-white/15" />
+        <div className="absolute left-1/2 top-0 h-[7%] w-[20%] -translate-x-1/2 border border-t-0 border-white/15" />
+        <div className="absolute bottom-0 left-1/2 aspect-[2/1] w-[24%] -translate-x-1/2 rounded-t-full border border-b-0 border-white/15" />
+      </div>
+      <div className="relative flex flex-col gap-5 px-1 py-6 sm:gap-8 sm:px-6 sm:py-9">
+        {[0, 1, 2, 3].map((pos) => (
+          <div key={pos} role="group" aria-label={POSITIONS[pos]} className="flex justify-around gap-1">
+            {starters.filter((c) => c.pos === pos).map((c) => <Token key={c.id} c={c} captain={c.id === captainId} />)}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Beklenen puan rozeti: yüksek puan yeşil, orta sarı, düşük gri. Sayı her zaman yazılı. */
+const xpTone = (xp: number) => (xp >= 7 ? "bg-good text-white" : xp >= 5 ? "bg-[#b7791f] text-white" : "bg-raised text-ink ring-1 ring-hair");
+const lastName = (name: string) => name.split(" ").slice(1).join(" ") || name;
+
+function Token({ c, captain = false }: { c: Candidate; captain?: boolean }) {
   return (
     <Link
       href={`/player/${c.id}`}
       prefetch={false}
-      className="flex items-center gap-2.5 rounded-lg bg-raised/60 p-2 ring-1 ring-hair hover:bg-raised"
+      title={`${c.name} · ${POSITIONS[c.pos]} · ${c.team}`}
+      className="group flex w-[19%] min-w-0 max-w-36 flex-col items-center text-center"
     >
-      <span className="hidden sm:inline-flex"><Avatar src={c.img} size={36} /></span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{c.name}</span>
-          {captain && <span className="shrink-0 rounded bg-ink px-1 text-[10px] font-semibold text-bg" title="Kaptan">K</span>}
+      <span className="relative">
+        <span className="block size-11 overflow-hidden rounded-full bg-raised ring-2 ring-white/20 group-hover:ring-white/60 sm:size-14">
+          {c.img && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.img} alt="" loading="lazy" className="size-full object-cover" />
+          )}
         </span>
-        <span className="truncate text-xs text-muted">{POS_SHORT[c.pos]} · {c.team}</span>
-        <span className="truncate text-xs text-faint">{c.home ? "–" : "@"} {c.opp} · {fmtDate(c.date)}</span>
+        {captain && (
+          <span className="absolute -right-1.5 -top-1 rounded bg-ink px-1 text-[10px] font-bold leading-4 text-bg" title="Kaptan">K</span>
+        )}
+        <span className={`absolute -bottom-2 left-1/2 -translate-x-1/2 rounded px-1.5 text-[11px] font-semibold leading-[18px] ${xpTone(c.xp)}`}>
+          {fmt1(c.xp)}
+        </span>
       </span>
-      <span className="flex flex-col items-end">
-        <span className="text-base font-semibold">{fmt1(c.xp)}</span>
-        <span className="text-[10px] text-faint">{fmt1(c.cost)}M</span>
+      <span className="mt-3 w-full truncate text-xs font-medium sm:text-sm">
+        <span className="sm:hidden">{lastName(c.name)}</span>
+        <span className="hidden sm:inline">{c.name}</span>
+      </span>
+      {/* Telefonda yer dar: takım yerine rakip, altında yalnızca fiyat yazılır. */}
+      <span className="w-full truncate text-[10px] text-muted sm:text-xs">
+        <span className="sm:hidden">{c.home ? "" : "@ "}{c.opp}</span>
+        <span className="hidden sm:inline">{POS_SHORT[c.pos]} · {c.team}</span>
+      </span>
+      <span className="w-full truncate text-[10px] text-faint sm:text-xs">
+        <span className="hidden sm:inline">{c.home ? "" : "@ "}{c.opp} · </span>{fmt1(c.cost)}M
       </span>
     </Link>
   );
