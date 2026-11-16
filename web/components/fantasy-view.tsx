@@ -155,7 +155,8 @@ function Pitch({ starters, captainId }: { starters: Candidate[]; captainId: stri
 }
 
 /** Beklenen puan rozeti: yüksek puan yeşil, orta sarı, düşük gri. Sayı her zaman yazılı. */
-const xpTone = (xp: number) => (xp >= 7 ? "bg-good text-white" : xp >= 5 ? "bg-[#b7791f] text-white" : "bg-raised text-ink ring-1 ring-hair");
+// Eşikler yazılan (yuvarlanmış) değere göre: 6,96 "7,0" yazıldığı için yeşil olmalı.
+const xpTone = (raw: number, xp = Math.round(raw * 10) / 10) => (xp >= 7 ? "bg-good text-white" : xp >= 5 ? "bg-[#b7791f] text-white" : "bg-raised text-ink ring-1 ring-hair");
 const lastName = (name: string) => name.split(" ").slice(1).join(" ") || name;
 
 function Token({ c, captain = false }: { c: Candidate; captain?: boolean }) {
