@@ -6,7 +6,7 @@ import { buildCandidates, buildSquads, POS_SHORT } from "../lib/fantasy.ts";
 
 const teams = getTeams(new Date().toISOString().slice(0, 10));
 const rows = getFantasyRows("Süper Lig");
-const tff = JSON.parse(readFileSync(new URL("../data/tff-players.json", import.meta.url), "utf8"));
+const tff = JSON.parse(readFileSync(new URL("../lib/tff-players.json", import.meta.url), "utf8"));
 const candidates = buildCandidates(rows, teams, tff.players);
 console.log(`Resmi listeyle eşleşen aday: ${candidates.length}`);
 const f = (n) => n.toFixed(1);

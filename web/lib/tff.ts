@@ -1,4 +1,4 @@
-// TFF Fantezi Lig'in resmi oyuncu listesi (data/tff-players.json; kullanıcının siteden dışa aktardığı dosya)
+// TFF Fantezi Lig'in resmi oyuncu listesi (lib/tff-players.json; kullanıcının siteden dışa aktardığı dosya)
 // ile veri kaynağımızdaki oyuncuları eşleştirir. İki tarafta ortak kimlik olmadığı için kulüp + ad kullanılır.
 
 export type TffPlayer = {

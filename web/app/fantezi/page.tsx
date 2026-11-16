@@ -1,5 +1,5 @@
 import { FantasyView } from "@/components/fantasy-view";
-import tff from "@/data/tff-players.json";
+import tff from "@/lib/tff-players.json";
 import { getFantasyRows, getTeams } from "@/lib/data";
 import { buildCandidates, buildSquads } from "@/lib/fantasy";
 import { fmtDate } from "@/lib/stats";
