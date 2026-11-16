@@ -86,8 +86,15 @@ export function openDb() {
     );
   `);
   // Sonradan eklenen sütunlar; var olan veritabanlarında da oluşsun diye ayrı eklenir.
-  addColumn(db, "players", "position", "INTEGER"); // 0 kaleci, 1 defans, 2 orta saha, 3 forvet
-  addColumn(db, "matches", "lineup_at", "TEXT"); // kadro (mevki) bilgisi çekildiyse zaman damgası
+  // Mevki: 0 kaleci, 1 defans, 2 orta saha, 3 forvet.
+  // position: kaynağın oyuncu için verdiği genel mevki (yalnızca yedek listesinde gelir).
+  // position_est: ilk 11'de oynadığı son maçtaki sahadaki rolünden çıkarılan mevki.
+  addColumn(db, "players", "position", "INTEGER");
+  addColumn(db, "players", "position_est", "INTEGER");
+  // Kadro (mevki) bilgisi çekildiyse zaman damgası. Eski lineup_at sütunu ilk sürümde hatalı doldurulduğu
+  // için kullanılmıyor; maçlar bu sütunla bir kez yeniden işlenir.
+  addColumn(db, "matches", "lineup2_at", "TEXT");
+  db.exec("UPDATE players SET position = NULL WHERE position NOT BETWEEN 0 AND 3");
   return db;
 }
 

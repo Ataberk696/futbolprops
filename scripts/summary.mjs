@@ -10,7 +10,7 @@ const rows = openDb()
        (SELECT count(DISTINCT s.player_id) FROM player_match_stats s JOIN matches x ON x.id = s.match_id
         WHERE x.league_id = m.league_id AND x.season = m.season) AS oyuncu,
        (SELECT count(DISTINCT s.player_id) FROM player_match_stats s JOIN matches x ON x.id = s.match_id
-        JOIN players p ON p.id = s.player_id AND p.position IS NOT NULL
+        JOIN players p ON p.id = s.player_id AND coalesce(p.position, p.position_est) IS NOT NULL
         WHERE x.league_id = m.league_id AND x.season = m.season) AS mevkili
      FROM matches m JOIN leagues l ON l.id = m.league_id
      GROUP BY m.league_id, m.season ORDER BY l.name, m.season`,

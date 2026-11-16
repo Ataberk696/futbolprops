@@ -227,7 +227,7 @@ export type FantasyRow = {
 export function getFantasyRows(leagueName: string): FantasyRow[] {
   return query<FantasyRow>(
     `${CURRENT_SEASON}
-     SELECT s.player_id, p.name, p.image_url, p.position, s.team_id, s.match_id, m.date, s.minutes,
+     SELECT s.player_id, p.name, p.image_url, coalesce(p.position, p.position_est) AS position, s.team_id, s.match_id, m.date, s.minutes,
        s.goals, s.assists, s.saves, s.yellow_cards AS yellow, s.red_cards AS red,
        coalesce(CASE WHEN m.home_team_id = s.team_id THEN m.score_away ELSE m.score_home END, 0) AS conceded
      FROM player_match_stats s

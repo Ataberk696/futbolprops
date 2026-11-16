@@ -140,7 +140,7 @@ export function FantasyView({ candidates }: { candidates: Candidate[] }) {
           <li>Oynama: oyuncu takımının son 5 maçının kaçında oynadıysa beklenen puan o oranla çarpılır.</li>
           <li>Bonus: her maçta bizim hesabımızla en yüksek puanı alan üç oyuncuya +3, +2, +1 verilir.</li>
           <li>Hesaba girmeyenler: oyuncu fiyatı ve bütçe, penaltı kurtarma ve kaçırma, kendi kalesine gol, sakatlık ve ceza durumu.</li>
-          <li>Mevki, oyuncunun son maç kadrosundaki mevkisidir; uygulamadaki mevkiden farklı olabilir.</li>
+          <li>Mevki veri kaynağından gelir (yoksa oyuncunun ilk 11&apos;deki son rolünden çıkarılır); uygulamadaki mevkiden farklı olabilir.</li>
         </ul>
       </details>
     </div>

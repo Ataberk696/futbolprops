@@ -202,12 +202,21 @@ for (const { id } of pending) {
 }
 console.log(`Bitti: ${done} maç işlendi, ${failed.length} hata.`);
 
-// Kadro yanıtının biçimine bağlı kalmamak için mevki taşıyan tüm oyuncu kayıtlarını toplar.
-function collectPositions(node, out = new Map()) {
+// Kadro yanıtındaki mevki taşıyan tüm oyuncu kayıtlarını toplar.
+// Yedeklerde position_id genel mevkidir (0 kaleci, 1 defans, 2 orta saha, 3 forvet).
+// İlk 11'de ise sahadaki rolün kodudur: 11 kaleci, 3x defans, 5x kanat bek, 6x-8x orta saha, 10x-11x forvet.
+function collectPositions(node, out = { general: new Map(), role: new Map() }) {
   if (Array.isArray(node)) {
     for (const item of node) collectPositions(item, out);
   } else if (node && typeof node === "object") {
-    if (typeof node.player_id === "string" && Number.isInteger(node.position_id)) out.set(node.player_id, node.position_id);
+    const id = node.position_id;
+    if (typeof node.player_id === "string" && Number.isInteger(id)) {
+      if (id <= 3) out.general.set(node.player_id, id);
+      else {
+        const line = Math.floor(id / 10);
+        out.role.set(node.player_id, line <= 1 ? 0 : line <= 5 ? 1 : line <= 9 ? 2 : 3);
+      }
+    }
     for (const value of Object.values(node)) collectPositions(value, out);
   }
   return out;
@@ -216,10 +225,11 @@ function collectPositions(node, out = new Map()) {
 // Mevkiler: eskiden yeniye işlenir, böylece oyuncunun en son maçındaki mevkisi kalır.
 const lineupLeagues = LEAGUES.filter((l) => l.lineups).map((l) => l.id);
 const setPosition = db.prepare(`UPDATE players SET position = ? WHERE id = ?`);
-const setLineupAt = db.prepare(`UPDATE matches SET lineup_at = ? WHERE id = ?`);
+const setPositionEst = db.prepare(`UPDATE players SET position_est = ? WHERE id = ?`);
+const setLineupAt = db.prepare(`UPDATE matches SET lineup2_at = ? WHERE id = ?`);
 const lineupPending = db
   .prepare(
-    `SELECT id FROM matches WHERE status = 'finished' AND details_at IS NOT NULL AND lineup_at IS NULL
+    `SELECT id FROM matches WHERE status = 'finished' AND details_at IS NOT NULL AND lineup2_at IS NULL
        AND league_id IN (${lineupLeagues.map(() => "?").join(",") || "NULL"}) ORDER BY date, time_utc`,
   )
   .all(...lineupLeagues)
@@ -229,7 +239,8 @@ for (const { id } of lineupPending) {
   try {
     const positions = collectPositions(await get(`/v1/matches/${id}/lineups`));
     transaction(() => {
-      for (const [playerId, position] of positions) setPosition.run(position, playerId);
+      for (const [playerId, position] of positions.general) setPosition.run(position, playerId);
+      for (const [playerId, position] of positions.role) setPositionEst.run(position, playerId);
       setLineupAt.run(new Date().toISOString(), id);
     });
     lineupDone++;
