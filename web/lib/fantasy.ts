@@ -215,6 +215,11 @@ export function pickSquad(sorted: Candidate[], formation: [number, number, numbe
   return best;
 }
 
+// Veri kaynağındaki mevkisi TFF Fantezi Lig'dekinden farklı olan oyuncular için elle düzeltme (ada göre).
+const POSITION_OVERRIDES: Record<string, number> = {
+  "Eldor Shomurodov": 3,
+};
+
 /** Veritabanı satırlarından (en yeni maç başta) aday listesini kurar. */
 export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamData>): Candidate[] {
   const players = new Map<string, FantasyInput>();
@@ -222,11 +227,12 @@ export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamDa
   for (const r of rows) {
     const list = (teamMatches[r.team_id] ??= []);
     if (!list.includes(r.match_id)) list.push(r.match_id);
-    if (r.position == null || r.position < 0 || r.position > 3) continue;
+    const pos = POSITION_OVERRIDES[r.name] ?? r.position;
+    if (pos == null || pos < 0 || pos > 3) continue;
     let p = players.get(r.player_id);
     if (!p) {
       // Satırlar yeniden eskiye sıralı: ilk görülen takım oyuncunun güncel takımıdır.
-      p = { id: r.player_id, name: r.name, img: r.image_url, pos: r.position, teamId: r.team_id, games: [] };
+      p = { id: r.player_id, name: r.name, img: r.image_url, pos, teamId: r.team_id, games: [] };
       players.set(r.player_id, p);
     }
     if (r.minutes == null) continue; // dakikası bilinmeyen maç puanlanamaz
