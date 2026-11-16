@@ -1,5 +1,6 @@
 // TFF Fantezi Lig puanlaması, sıradaki maç için beklenen puan tahmini ve kadro seçimi.
 // Tahmin sunucuda (derleme anında) hesaplanır; kadro seçimi tarayıcıda da çalışır.
+import type { FantasyRow } from "./data";
 import type { TeamData } from "./stats";
 
 export const POSITIONS = ["Kaleci", "Defans", "Orta saha", "Forvet"] as const;
@@ -60,6 +61,8 @@ export type Candidate = {
   atk: number;
   /** Takımının gol yememe olasılığı. */
   cs: number;
+  /** Beklenen puanın kalemleri (oynama oranıyla çarpılmadan önce). */
+  parts: { appearance: number; attack: number; cleanSheet: number; conceded: number; saves: number; cards: number; bonus: number };
 };
 
 export type FantasyInput = {
@@ -142,14 +145,16 @@ export function project(
     const p60 = blend(scored.map((x) => (x.g.minutes >= 60 ? 1 : 0)));
     const minuteShare = Math.min(1, blend(scored.map((x) => x.g.minutes)) / 90);
 
-    const perGame =
-      blend(scored.map((x) => x.s.appearance)) +
-      blend(scored.map((x) => x.s.attack)) * atk +
-      CLEAN_SHEET_POINTS[p.pos] * p60 * cs +
-      (p.pos <= 1 ? -expectedConcededPenalty(lambda) * minuteShare : 0) +
-      blend(scored.map((x) => x.s.saves)) * clamp(opp.avgF.sot / avgSot, 0.6, 1.6) +
-      blend(scored.map((x) => x.s.cards)) +
-      blend(scored.map((x) => x.bonus)) * (p.pos >= 2 ? atk : 1);
+    const xpParts = {
+      appearance: blend(scored.map((x) => x.s.appearance)),
+      attack: blend(scored.map((x) => x.s.attack)) * atk,
+      cleanSheet: CLEAN_SHEET_POINTS[p.pos] * p60 * cs,
+      conceded: p.pos <= 1 ? -expectedConcededPenalty(lambda) * minuteShare : 0,
+      saves: blend(scored.map((x) => x.s.saves)) * clamp(opp.avgF.sot / avgSot, 0.6, 1.6),
+      cards: blend(scored.map((x) => x.s.cards)),
+      bonus: blend(scored.map((x) => x.bonus)) * (p.pos >= 2 ? atk : 1),
+    };
+    const perGame = Object.values(xpParts).reduce((a, b) => a + b, 0);
 
     const pts = scored.map((x) => total(x.s) + x.bonus);
     out.push({
@@ -157,7 +162,7 @@ export function project(
       teamId: team.id, team: team.name, teamImg: team.img,
       opp: opp.name, home: team.next.home, date: team.next.date,
       xp: play * perGame, form: mean(pts.slice(0, 5)), season: mean(pts), games: pts.length,
-      play, atk, cs,
+      play, atk, cs, parts: xpParts,
     });
   }
   return out.sort((a, b) => b.xp - a.xp);
@@ -208,4 +213,27 @@ export function pickSquad(sorted: Candidate[], formation: [number, number, numbe
     if (!best || xp > best.xp) best = { formation: f, starters, bench, gkBench, xp };
   }
   return best;
+}
+
+/** Veritabanı satırlarından (en yeni maç başta) aday listesini kurar. */
+export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamData>): Candidate[] {
+  const players = new Map<string, FantasyInput>();
+  const teamMatches: Record<string, string[]> = {};
+  for (const r of rows) {
+    const list = (teamMatches[r.team_id] ??= []);
+    if (!list.includes(r.match_id)) list.push(r.match_id);
+    if (r.position == null || r.position < 0 || r.position > 3) continue;
+    let p = players.get(r.player_id);
+    if (!p) {
+      // Satırlar yeniden eskiye sıralı: ilk görülen takım oyuncunun güncel takımıdır.
+      p = { id: r.player_id, name: r.name, img: r.image_url, pos: r.position, teamId: r.team_id, games: [] };
+      players.set(r.player_id, p);
+    }
+    if (r.minutes == null) continue; // dakikası bilinmeyen maç puanlanamaz
+    p.games.push({
+      matchId: r.match_id, date: r.date, minutes: r.minutes, goals: r.goals, assists: r.assists,
+      saves: r.saves, yellow: r.yellow, red: r.red, conceded: r.conceded,
+    });
+  }
+  return project([...players.values()], teams, teamMatches);
 }

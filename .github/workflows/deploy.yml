@@ -91,6 +91,11 @@ jobs:
       - name: Veri özeti
         run: node scripts/summary.mjs
 
+      # Fantezi kadro hesabının oyuncu başına dökümü; sonuç tuhaf görünürse buradan denetlenir.
+      - name: Fantezi dökümü
+        run: node scripts/fantasy-debug.mjs
+        working-directory: web
+
   deploy:
     needs: build
     # Yalnızca main yayınlanır; başka daldan elle çalıştırma yalnızca derlemeyi dener.
