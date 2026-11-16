@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { BUDGET, POSITIONS, POS_SHORT, type Candidate, type NamedSquad } from "@/lib/fantasy";
+import { useMemo, useState } from "react";
+import { BUDGET, FORMATION_CHOICES, POSITIONS, POS_SHORT, type Candidate, type SquadRef } from "@/lib/fantasy";
 import { fmt1, fmtPct } from "@/lib/stats";
 import { Seg } from "./ui";
 
-export function FantasyView({ candidates, squads }: { candidates: Candidate[]; squads: NamedSquad[] }) {
-  const [tab, setTab] = useState(squads[0]?.key ?? "");
+export function FantasyView({ candidates, squads: all }: { candidates: Candidate[]; squads: Record<string, SquadRef[]> }) {
+  const [formation, setFormation] = useState("auto");
+  const [tab, setTab] = useState("main");
   const [pos, setPos] = useState(-1);
 
-  const current = squads.find((s) => s.key === tab) ?? squads[0];
+  const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
+  const squads = all[formation] ?? [];
+  const ref = squads.find((s) => s.key === tab) ?? squads[0];
+  const pick = (ids: string[]) => ids.flatMap((id) => byId.get(id) ?? []);
+  const current = ref && { ...ref, squad: { ...ref, starters: pick(ref.starters), bench: pick(ref.bench) } };
   const role = new Map<string, string>();
-  if (current) {
-    for (const c of current.squad.starters) role.set(c.id, "11");
-    for (const c of current.squad.bench) role.set(c.id, "Yedek");
+  if (ref) {
+    for (const id of ref.starters) role.set(id, "11");
+    for (const id of ref.bench) role.set(id, "Yedek");
   }
   const listed = candidates.filter((c) => pos < 0 || c.pos === pos).slice(0, 80);
 
@@ -30,7 +35,14 @@ export function FantasyView({ candidates, squads }: { candidates: Candidate[]; s
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Seg label="Kadro" value={current.key} onChange={setTab} options={squads.map((s) => ({ value: s.key, label: s.label }))} />
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+          <Group label="Kadro">
+            <Seg label="Kadro" value={current.key} onChange={setTab} options={squads.map((s) => ({ value: s.key, label: s.label }))} />
+          </Group>
+          <Group label="Diziliş">
+            <Seg label="Diziliş" value={formation} onChange={setFormation} options={FORMATION_CHOICES.map((f) => ({ value: f.key, label: f.label }))} />
+          </Group>
+        </div>
         <p className="text-sm text-muted">{current.hint}</p>
       </div>
 
@@ -194,5 +206,15 @@ function Token({ c, captain = false }: { c: Candidate; captain?: boolean }) {
         <span className="hidden sm:inline">{c.home ? "" : "@ "}{c.opp} · </span>{fmt1(c.cost)}M
       </span>
     </Link>
+  );
+}
+
+/** Başlıklı düğme grubu. <label> kullanılmaz: düğmeleri saran label ilk düğmenin adını bozar. */
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 text-xs text-faint">
+      <span aria-hidden>{label}</span>
+      {children}
+    </div>
   );
 }

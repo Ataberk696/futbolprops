@@ -196,8 +196,18 @@ export const MAX_PER_TEAM = 3;
 // Yedeklerin puanı normalde sayılmaz; kadro seçerken küçük bir ağırlıkla hesaba katılır.
 const BENCH_WEIGHT = 0.1;
 
+/** [defans, orta saha, forvet] */
+export type Formation = [number, number, number];
+/** Sayfada seçilebilen dizilişler; "auto" en yüksek puanı veren dizilişi kendisi bulur. */
+export const FORMATION_CHOICES: { key: string; label: string; formation: Formation | null }[] = [
+  { key: "auto", label: "Otomatik", formation: null },
+  { key: "442", label: "4-4-2", formation: [4, 4, 2] },
+  { key: "343", label: "3-4-3", formation: [3, 4, 3] },
+  { key: "352", label: "3-5-2", formation: [3, 5, 2] },
+];
+
 export type Squad = {
-  formation: [number, number, number];
+  formation: Formation;
   starters: Candidate[];
   /** Yedek kaleci başta, sonra üç saha oyuncusu. */
   bench: Candidate[];
@@ -208,15 +218,16 @@ export type Squad = {
 };
 
 /** 15 kişilik kadrodan kurallara uyan en iyi 11'i seçer: 1 kaleci, en az 3 defans, en az 1 forvet. */
-function lineup(squad: Candidate[], value: (c: Candidate) => number) {
+function lineup(squad: Candidate[], value: (c: Candidate) => number, fixed: Formation | null = null) {
   const by = [0, 1, 2, 3].map((pos) => squad.filter((c) => c.pos === pos).sort((a, b) => value(b) - value(a)));
-  let best: { score: number; formation: [number, number, number] } | null = null;
+  let best: { score: number; formation: Formation } | null = null;
   const top = (pos: number, n: number) => by[pos].slice(0, n).reduce((a, c) => a + value(c), 0);
   const all = squad.reduce((a, c) => a + value(c), 0);
   for (let d = 3; d <= 5; d++) {
     for (let f = 1; f <= 3; f++) {
       const m = 10 - d - f;
       if (m < 2 || m > 5) continue;
+      if (fixed && (fixed[0] !== d || fixed[2] !== f)) continue;
       const start = top(0, 1) + top(1, d) + top(2, m) + top(3, f);
       const score = start + BENCH_WEIGHT * (all - start);
       if (!best || score > best.score) best = { score, formation: [d, m, f] };
@@ -234,6 +245,7 @@ export function pickSquad(
   candidates: Candidate[],
   value: (c: Candidate) => number = (c) => c.xp,
   allowed: (c: Candidate) => boolean = () => true,
+  formation: Formation | null = null,
 ): Squad | null {
   const pool = candidates.filter((c) => c.available && allowed(c));
 
@@ -287,13 +299,13 @@ export function pickSquad(
     return [...new Set([...a, ...b])];
   });
 
-  let score = lineup(squad, value).score;
+  let score = lineup(squad, value, formation).score;
   for (let pass = 0; pass < 40; pass++) {
     let improved = false;
     const tryReplace = (out: number[], ins: Candidate[]) => {
       const next = squad!.filter((_, i) => !out.includes(i)).concat(ins);
       if (new Set(next.map((c) => c.id)).size !== 15 || !feasible(next)) return false;
-      const s = lineup(next, value).score;
+      const s = lineup(next, value, formation).score;
       if (s <= score + 1e-9) return false;
       squad = next;
       score = s;
@@ -312,13 +324,13 @@ export function pickSquad(
     if (!improved) break;
   }
 
-  const { formation, by } = lineup(squad, value);
-  const counts = [1, ...formation];
+  const { formation: chosen, by } = lineup(squad, value, formation);
+  const counts = [1, ...chosen];
   const starters = by.flatMap((list, pos) => list.slice(0, counts[pos]));
   const bench = by.flatMap((list, pos) => list.slice(counts[pos]));
   const captain = [...starters].sort((a, b) => b.xp - a.xp)[0];
   return {
-    formation, starters, bench, captainId: captain.id,
+    formation: chosen, starters, bench, captainId: captain.id,
     xp: starters.reduce((a, c) => a + c.xp, 0) + captain.xp,
     cost: costOf(squad),
   };
@@ -329,7 +341,7 @@ export type NamedSquad = { key: string; label: string; hint: string; squad: Squa
 export const DIFFERENTIAL_PCT = 10;
 
 /** Ana kadro, ondan farklılaşan iki alternatif ve az seçilen oyunculardan bir sürpriz kadro. */
-export function buildSquads(candidates: Candidate[]): NamedSquad[] {
+export function buildSquads(candidates: Candidate[], formation: Formation | null = null): NamedSquad[] {
   const out: NamedSquad[] = [];
   const used = new Map<string, number>(); // oyuncu -> önceki kadrolarda kaç kez yer aldı
   const add = (key: string, label: string, hint: string, squad: Squad | null, remember = true) => {
@@ -339,13 +351,13 @@ export function buildSquads(candidates: Candidate[]): NamedSquad[] {
   };
   // Alternatiflerde önceki kadrolarda yer alan oyuncunun değeri kırılır; böylece yakın puanlı başka isimler öne çıkar.
   const fresh = (c: Candidate) => c.xp * 0.75 ** (used.get(c.id) ?? 0);
-  add("main", "En iyi kadro", "Bütçeye sığan, beklenen puanı en yüksek kadro.", pickSquad(candidates));
-  add("alt1", "Alternatif 1", "Ana kadrodaki oyuncuların ağırlığı azaltılarak kurulan ikinci seçenek.", pickSquad(candidates, fresh));
-  add("alt2", "Alternatif 2", "İlk iki kadrodan farklılaşan üçüncü seçenek.", pickSquad(candidates, fresh));
+  add("main", "En iyi kadro", "Bütçeye sığan, beklenen puanı en yüksek kadro.", pickSquad(candidates, undefined, undefined, formation));
+  add("alt1", "Alternatif 1", "Ana kadrodaki oyuncuların ağırlığı azaltılarak kurulan ikinci seçenek.", pickSquad(candidates, fresh, undefined, formation));
+  add("alt2", "Alternatif 2", "İlk iki kadrodan farklılaşan üçüncü seçenek.", pickSquad(candidates, fresh, undefined, formation));
   add(
     "surprise", "Sürpriz kadro",
     `Yalnızca menajerlerin %${DIFFERENTIAL_PCT}'undan azının aldığı oyunculardan kurulur.`,
-    pickSquad(candidates, (c) => c.xp, (c) => c.selected < DIFFERENTIAL_PCT),
+    pickSquad(candidates, (c) => c.xp, (c) => c.selected < DIFFERENTIAL_PCT, formation),
     false,
   );
   return out;
@@ -379,4 +391,29 @@ export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamDa
     });
   }
   return project([...players.values()], teams, teamMatches);
+}
+
+/** Sayfaya giden hafif kadro kaydı: oyuncular kimlikle tutulur, ayrıntı aday listesinden okunur. */
+export type SquadRef = {
+  key: string;
+  label: string;
+  hint: string;
+  formation: Formation;
+  starters: string[];
+  bench: string[];
+  captainId: string;
+  xp: number;
+  cost: number;
+};
+
+/** Her diziliş seçeneği için dört kadro. Anahtar: FORMATION_CHOICES içindeki key. */
+export function buildAllSquads(candidates: Candidate[]): Record<string, SquadRef[]> {
+  const out: Record<string, SquadRef[]> = {};
+  for (const choice of FORMATION_CHOICES) {
+    out[choice.key] = buildSquads(candidates, choice.formation).map(({ key, label, hint, squad }) => ({
+      key, label, hint, formation: squad.formation, captainId: squad.captainId, xp: squad.xp, cost: squad.cost,
+      starters: squad.starters.map((c) => c.id), bench: squad.bench.map((c) => c.id),
+    }));
+  }
+  return out;
 }

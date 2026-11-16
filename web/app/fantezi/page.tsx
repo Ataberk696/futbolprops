@@ -1,7 +1,7 @@
 import { FantasyView } from "@/components/fantasy-view";
 import tff from "@/lib/tff-players.json";
 import { getFantasyRows, getTeams } from "@/lib/data";
-import { buildCandidates, buildSquads } from "@/lib/fantasy";
+import { buildAllSquads, buildCandidates } from "@/lib/fantasy";
 import { fmtDate } from "@/lib/stats";
 
 const LEAGUE = "Süper Lig";
@@ -9,7 +9,7 @@ const LEAGUE = "Süper Lig";
 export default function Page() {
   const teams = getTeams(new Date().toISOString().slice(0, 10));
   const candidates = buildCandidates(getFantasyRows(LEAGUE), teams, tff.players);
-  const squads = buildSquads(candidates);
+  const squads = buildAllSquads(candidates);
 
   return (
     <>
