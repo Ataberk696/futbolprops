@@ -2,6 +2,7 @@
 // Tahmin sunucuda (derleme anında) hesaplanır; kadro seçimi tarayıcıda da çalışır.
 import type { FantasyRow } from "./data";
 import type { TeamData } from "./stats";
+import { matchTff, type TffPlayer } from "./tff.ts";
 
 export const POSITIONS = ["Kaleci", "Defans", "Orta saha", "Forvet"] as const;
 export const POS_SHORT = ["KL", "DF", "OS", "FV"] as const;
@@ -61,6 +62,13 @@ export type Candidate = {
   atk: number;
   /** Takımının gol yememe olasılığı. */
   cs: number;
+  /** Resmi listeden: fiyat (milyon TL), seçilme yüzdesi ve durum. */
+  cost: number;
+  selected: number;
+  /** Kadroya alınabilir mi (cezalı, sakat ya da oynama ihtimali düşük değilse). */
+  available: boolean;
+  /** Alınamıyorsa ya da şüpheliyse kısa açıklama. */
+  note: string | null;
   /** Beklenen puanın kalemleri (oynama oranıyla çarpılmadan önce). */
   parts: { appearance: number; attack: number; cleanSheet: number; conceded: number; saves: number; cards: number; bonus: number };
 };
@@ -71,6 +79,7 @@ export type FantasyInput = {
   img: string | null;
   pos: number;
   teamId: string;
+  tff: TffPlayer;
   /** En yeni maç başta; dakikası bilinmeyen maçlar çıkarılmış. */
   games: FantasyGame[];
 };
@@ -155,84 +164,212 @@ export function project(
       bonus: blend(scored.map((x) => x.bonus)) * (p.pos >= 2 ? atk : 1),
     };
     const perGame = Object.values(xpParts).reduce((a, b) => a + b, 0);
+    // Resmi listedeki durum: cezalı/sakat oyuncu alınmaz; oynama ihtimali verilmişse puan onunla çarpılır.
+    const chance = p.tff.chance == null ? 1 : p.tff.chance / 100;
+    const available = p.tff.status === "AVAILABLE" && chance >= 0.5;
+    const note = p.tff.status !== "AVAILABLE" || chance < 1 ? statusNote(p.tff) : null;
 
     const pts = scored.map((x) => total(x.s) + x.bonus);
     out.push({
       id: p.id, name: p.name, img: p.img, pos: p.pos,
       teamId: team.id, team: team.name, teamImg: team.img,
       opp: opp.name, home: team.next.home, date: team.next.date,
-      xp: play * perGame, form: mean(pts.slice(0, 5)), season: mean(pts), games: pts.length,
+      cost: p.tff.cost, selected: p.tff.selected, available, note,
+      xp: play * perGame * chance, form: mean(pts.slice(0, 5)), season: mean(pts), games: pts.length,
       play, atk, cs, parts: xpParts,
     });
   }
   return out.sort((a, b) => b.xp - a.xp);
 }
 
-/** [defans, orta saha, forvet] */
-export const FORMATIONS: [number, number, number][] = [
-  [3, 4, 3], [3, 5, 2], [4, 3, 3], [4, 4, 2], [4, 5, 1], [5, 3, 2], [5, 4, 1],
-];
-
-export type Squad = { formation: [number, number, number]; starters: Candidate[]; bench: Candidate[]; gkBench: Candidate | null; xp: number };
-
-/**
- * Beklenen puanı en yüksek 11 + 3 yedek + yedek kaleci.
- * Adaylar puana göre sıralı gezilir; mevki kontenjanı ve takım başına sınır dolmadıkça alınır.
- */
-export function pickSquad(sorted: Candidate[], formation: [number, number, number] | null, maxPerTeam: number): Squad | null {
-  let best: Squad | null = null;
-  for (const f of formation ? [formation] : FORMATIONS) {
-    const need = [1, ...f];
-    const perTeam = new Map<string, number>();
-    const take = (c: Candidate) => perTeam.set(c.teamId, (perTeam.get(c.teamId) ?? 0) + 1);
-    const free = (c: Candidate) => (perTeam.get(c.teamId) ?? 0) < maxPerTeam;
-    const starters: Candidate[] = [];
-    for (const c of sorted) {
-      if (need[c.pos] > 0 && free(c)) {
-        need[c.pos]--;
-        starters.push(c);
-        take(c);
-      }
-    }
-    if (starters.length < 11) continue;
-    const chosen = new Set(starters.map((c) => c.id));
-    const bench: Candidate[] = [];
-    let gkBench: Candidate | null = null;
-    for (const c of sorted) {
-      if (chosen.has(c.id) || !free(c)) continue;
-      if (c.pos === 0) {
-        if (gkBench) continue;
-        gkBench = c;
-      } else {
-        if (bench.length >= 3) continue;
-        bench.push(c);
-      }
-      take(c);
-    }
-    const xp = starters.reduce((a, c) => a + c.xp, 0);
-    if (!best || xp > best.xp) best = { formation: f, starters, bench, gkBench, xp };
-  }
-  return best;
+const STATUS_LABEL: Record<string, string> = { SUSPENDED: "Cezalı", INJURED: "Sakat", DOUBTFUL: "Şüpheli", UNAVAILABLE: "Yok" };
+function statusNote(t: TffPlayer) {
+  const label = STATUS_LABEL[t.status] ?? (t.status === "AVAILABLE" ? "Şüpheli" : t.status);
+  const news = t.news ? t.news.toLocaleLowerCase("tr") : null;
+  return [label, news, t.chance != null ? `%${t.chance}` : null].filter(Boolean).join(" · ");
 }
 
-// Veri kaynağındaki mevkisi TFF Fantezi Lig'dekinden farklı olan oyuncular için elle düzeltme (ada göre).
-const POSITION_OVERRIDES: Record<string, number> = {
-  "Eldor Shomurodov": 3,
+// Resmi kadro kuralları (tfffantezilig.com/yardim?tab=kurallar).
+export const SQUAD_QUOTA = [2, 5, 5, 3];
+export const BUDGET = 100;
+export const MAX_PER_TEAM = 3;
+// Yedeklerin puanı normalde sayılmaz; kadro seçerken küçük bir ağırlıkla hesaba katılır.
+const BENCH_WEIGHT = 0.1;
+
+export type Squad = {
+  formation: [number, number, number];
+  starters: Candidate[];
+  /** Yedek kaleci başta, sonra üç saha oyuncusu. */
+  bench: Candidate[];
+  captainId: string;
+  /** İlk 11'in beklenen puanı; kaptanınki iki kez sayılır. */
+  xp: number;
+  cost: number;
 };
 
-/** Veritabanı satırlarından (en yeni maç başta) aday listesini kurar. */
-export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamData>): Candidate[] {
+/** 15 kişilik kadrodan kurallara uyan en iyi 11'i seçer: 1 kaleci, en az 3 defans, en az 1 forvet. */
+function lineup(squad: Candidate[], value: (c: Candidate) => number) {
+  const by = [0, 1, 2, 3].map((pos) => squad.filter((c) => c.pos === pos).sort((a, b) => value(b) - value(a)));
+  let best: { score: number; formation: [number, number, number] } | null = null;
+  const top = (pos: number, n: number) => by[pos].slice(0, n).reduce((a, c) => a + value(c), 0);
+  const all = squad.reduce((a, c) => a + value(c), 0);
+  for (let d = 3; d <= 5; d++) {
+    for (let f = 1; f <= 3; f++) {
+      const m = 10 - d - f;
+      if (m < 2 || m > 5) continue;
+      const start = top(0, 1) + top(1, d) + top(2, m) + top(3, f);
+      const score = start + BENCH_WEIGHT * (all - start);
+      if (!best || score > best.score) best = { score, formation: [d, m, f] };
+    }
+  }
+  return { ...best!, by };
+}
+
+/**
+ * Bütçe, mevki kontenjanı ve takım sınırına uyan, değeri en yüksek 15 kişilik kadro.
+ * Önce "değer − λ·fiyat" sıralamasıyla bütçeye sığan bir kadro kurulur, sonra tekli ve ikili
+ * oyuncu değişimleriyle iyileşme kalmayana kadar düzeltilir (tam çözüm değil, iyi bir yaklaşık çözüm).
+ */
+export function pickSquad(
+  candidates: Candidate[],
+  value: (c: Candidate) => number = (c) => c.xp,
+  allowed: (c: Candidate) => boolean = () => true,
+): Squad | null {
+  const pool = candidates.filter((c) => c.available && allowed(c));
+
+  const greedy = (lambda: number) => {
+    const need = [...SQUAD_QUOTA];
+    const perTeam = new Map<string, number>();
+    const squad: Candidate[] = [];
+    for (const c of [...pool].sort((a, b) => value(b) - lambda * b.cost - (value(a) - lambda * a.cost))) {
+      if (!need[c.pos] || (perTeam.get(c.teamId) ?? 0) >= MAX_PER_TEAM) continue;
+      need[c.pos]--;
+      perTeam.set(c.teamId, (perTeam.get(c.teamId) ?? 0) + 1);
+      squad.push(c);
+    }
+    return squad.length === 15 ? squad : null;
+  };
+  const costOf = (sq: Candidate[]) => sq.reduce((a, c) => a + c.cost, 0);
+
+  let lo = 0;
+  let hi = 8;
+  let squad = greedy(0);
+  if (!squad) return null;
+  if (costOf(squad) > BUDGET) {
+    const cheap = greedy(hi);
+    if (!cheap || costOf(cheap) > BUDGET) return null;
+    squad = cheap;
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2;
+      const sq = greedy(mid);
+      if (sq && costOf(sq) <= BUDGET) {
+        hi = mid;
+        squad = sq;
+      } else lo = mid;
+    }
+  }
+
+  const feasible = (sq: Candidate[]) => {
+    if (costOf(sq) > BUDGET + 1e-9) return false;
+    const perTeam = new Map<string, number>();
+    for (const c of sq) {
+      const n = (perTeam.get(c.teamId) ?? 0) + 1;
+      if (n > MAX_PER_TEAM) return false;
+      perTeam.set(c.teamId, n);
+    }
+    return true;
+  };
+  // Değişim adayları: her mevkide değeri ve fiyat başına değeri en yüksek oyuncular.
+  const shortlist = [0, 1, 2, 3].map((pos) => {
+    const list = pool.filter((c) => c.pos === pos);
+    const a = [...list].sort((x, y) => value(y) - value(x)).slice(0, 14);
+    const b = [...list].sort((x, y) => value(y) / y.cost - value(x) / x.cost).slice(0, 8);
+    return [...new Set([...a, ...b])];
+  });
+
+  let score = lineup(squad, value).score;
+  for (let pass = 0; pass < 40; pass++) {
+    let improved = false;
+    const tryReplace = (out: number[], ins: Candidate[]) => {
+      const next = squad!.filter((_, i) => !out.includes(i)).concat(ins);
+      if (new Set(next.map((c) => c.id)).size !== 15 || !feasible(next)) return false;
+      const s = lineup(next, value).score;
+      if (s <= score + 1e-9) return false;
+      squad = next;
+      score = s;
+      return (improved = true);
+    };
+    for (let i = 0; i < 15; i++) {
+      for (const c of shortlist[squad[i].pos]) if (tryReplace([i], [c])) break;
+    }
+    for (let i = 0; i < 15 && !improved; i++) {
+      for (let j = i + 1; j < 15 && !improved; j++) {
+        search: for (const a of shortlist[squad[i].pos]) {
+          for (const b of shortlist[squad[j].pos]) if (a !== b && tryReplace([i, j], [a, b])) break search;
+        }
+      }
+    }
+    if (!improved) break;
+  }
+
+  const { formation, by } = lineup(squad, value);
+  const counts = [1, ...formation];
+  const starters = by.flatMap((list, pos) => list.slice(0, counts[pos]));
+  const bench = by.flatMap((list, pos) => list.slice(counts[pos]));
+  const captain = [...starters].sort((a, b) => b.xp - a.xp)[0];
+  return {
+    formation, starters, bench, captainId: captain.id,
+    xp: starters.reduce((a, c) => a + c.xp, 0) + captain.xp,
+    cost: costOf(squad),
+  };
+}
+
+export type NamedSquad = { key: string; label: string; hint: string; squad: Squad };
+/** Az seçilen oyuncu eşiği (yüzde); sürpriz kadro yalnızca bunun altındakilerden kurulur. */
+export const DIFFERENTIAL_PCT = 10;
+
+/** Ana kadro, ondan farklılaşan iki alternatif ve az seçilen oyunculardan bir sürpriz kadro. */
+export function buildSquads(candidates: Candidate[]): NamedSquad[] {
+  const out: NamedSquad[] = [];
+  const used = new Map<string, number>(); // oyuncu -> önceki kadrolarda kaç kez yer aldı
+  const add = (key: string, label: string, hint: string, squad: Squad | null, remember = true) => {
+    if (!squad) return;
+    out.push({ key, label, hint, squad });
+    if (remember) for (const c of [...squad.starters, ...squad.bench]) used.set(c.id, (used.get(c.id) ?? 0) + 1);
+  };
+  // Alternatiflerde önceki kadrolarda yer alan oyuncunun değeri kırılır; böylece yakın puanlı başka isimler öne çıkar.
+  const fresh = (c: Candidate) => c.xp * 0.75 ** (used.get(c.id) ?? 0);
+  add("main", "En iyi kadro", "Bütçeye sığan, beklenen puanı en yüksek kadro.", pickSquad(candidates));
+  add("alt1", "Alternatif 1", "Ana kadrodaki oyuncuların ağırlığı azaltılarak kurulan ikinci seçenek.", pickSquad(candidates, fresh));
+  add("alt2", "Alternatif 2", "İlk iki kadrodan farklılaşan üçüncü seçenek.", pickSquad(candidates, fresh));
+  add(
+    "surprise", "Sürpriz kadro",
+    `Yalnızca menajerlerin %${DIFFERENTIAL_PCT}'undan azının aldığı oyunculardan kurulur.`,
+    pickSquad(candidates, (c) => c.xp, (c) => c.selected < DIFFERENTIAL_PCT),
+    false,
+  );
+  return out;
+}
+
+/** Veritabanı satırlarından (en yeni maç başta) aday listesini kurar; yalnızca resmi listede bulunan oyuncular alınır. */
+export function buildCandidates(rows: FantasyRow[], teams: Record<string, TeamData>, tffList: TffPlayer[]): Candidate[] {
+  const seen = new Map<string, { id: string; name: string; club: string }>();
+  for (const r of rows) {
+    if (!seen.has(r.player_id)) seen.set(r.player_id, { id: r.player_id, name: r.name, club: teams[r.team_id]?.name ?? "" });
+  }
+  const tff = matchTff([...seen.values()], tffList);
+
   const players = new Map<string, FantasyInput>();
   const teamMatches: Record<string, string[]> = {};
   for (const r of rows) {
     const list = (teamMatches[r.team_id] ??= []);
     if (!list.includes(r.match_id)) list.push(r.match_id);
-    const pos = POSITION_OVERRIDES[r.name] ?? r.position;
-    if (pos == null || pos < 0 || pos > 3) continue;
+    const official = tff.get(r.player_id);
+    if (!official) continue;
     let p = players.get(r.player_id);
     if (!p) {
-      // Satırlar yeniden eskiye sıralı: ilk görülen takım oyuncunun güncel takımıdır.
-      p = { id: r.player_id, name: r.name, img: r.image_url, pos, teamId: r.team_id, games: [] };
+      // Satırlar yeniden eskiye sıralı: ilk görülen takım oyuncunun güncel takımıdır. Mevki resmi listeden gelir.
+      p = { id: r.player_id, name: r.name, img: r.image_url, pos: official.pos, teamId: r.team_id, tff: official, games: [] };
       players.set(r.player_id, p);
     }
     if (r.minutes == null) continue; // dakikası bilinmeyen maç puanlanamaz
