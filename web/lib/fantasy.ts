@@ -62,6 +62,8 @@ export type Candidate = {
   atk: number;
   /** Takımının gol yememe olasılığı. */
   cs: number;
+  /** Takımının en son maçında oynadığı dakika; o maçta hiç oynamadıysa 0. */
+  lastMin: number;
   /** Fikstür zorluğu: 1 çok kolay … 5 çok zor (takımın beklenen atacağı gole karşı yiyeceği gol). */
   diff: number;
   /** Son 5 maç ortalaması − sezon ortalaması; pozitif = formda. */
@@ -189,6 +191,7 @@ export function project(
       cost: p.tff.cost, selected: p.tff.selected, available, note,
       xp: play * perGame * chance, form: mean(pts.slice(0, 5)), season: mean(pts), games: pts.length,
       play, atk, cs, parts: xpParts,
+      lastMin: recent[0] ? (p.games.find((g) => g.matchId === recent[0])?.minutes ?? 0) : 0,
       diff: difficulty(lambdaFor, lambda), trend: mean(pts.slice(0, 5)) - mean(pts),
     });
   }

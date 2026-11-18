@@ -18,7 +18,7 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
   const current = ref && { ...ref, squad: { ...ref, starters: pick(ref.starters), bench: pick(ref.bench) } };
   const role = new Map<string, string>();
   if (ref) {
-    for (const id of ref.starters) role.set(id, "11");
+    for (const id of ref.starters) role.set(id, "İlk 11");
     for (const id of ref.bench) role.set(id, "Yedek");
   }
   const listed = candidates.filter((c) => pos < 0 || c.pos === pos).slice(0, 80);
@@ -82,10 +82,11 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Son 5 maçta maç başı puan (bizim hesabımız)">Son 5</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Sezon boyunca maç başı puan (bizim hesabımız)">Sezon</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Oyuncuyu kadrosuna alan menajerlerin oranı">Seçilme</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Takımının son maçında oynadığı dakika">Son maç</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Takımının son 5 maçından kaçında oynadı">Oynama</th>
                 <th scope="col" className="px-2 py-2.5 text-left font-medium sm:px-3" title="Fikstür zorluğu: rakibe göre takımın beklenen attığı ve yediği gol">Zorluk</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Takımının gol yememe olasılığı">Gol yememe</th>
-                <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Seçili kadrodaki yeri">Kadro</th>
+                <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Yukarıda gösterilen önerilen fantezi kadrosundaki yeri; oyuncunun gerçek takımındaki durumu değil">Seçili kadro</th>
               </tr>
             </thead>
             <tbody>
@@ -113,10 +114,11 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
                   </td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{fmt1(c.season)}</td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">%{fmt1(c.selected)}</td>
+                  <td className="px-2 py-2 text-right text-muted sm:px-3">{c.lastMin ? `${c.lastMin}'` : "oynamadı"}</td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{fmtPct(c.play)}</td>
                   <td className="px-2 py-2 sm:px-3"><DiffBadge diff={c.diff} /></td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{c.pos <= 2 ? fmtPct(c.cs) : "–"}</td>
-                  <td className="px-2 py-2 text-right text-xs text-muted sm:px-3">{role.get(c.id) ?? ""}</td>
+                  <td className="px-2 py-2 text-right text-xs text-muted sm:px-3">{role.get(c.id) ?? "–"}</td>
                 </tr>
               ))}
             </tbody>
