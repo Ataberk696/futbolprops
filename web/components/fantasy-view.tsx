@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BUDGET, FORMATION_CHOICES, POSITIONS, POS_SHORT, type Candidate, type SquadRef } from "@/lib/fantasy";
+import { BUDGET, DIFF_LABEL, FORMATION_CHOICES, POSITIONS, POS_SHORT, type Candidate, type SquadRef } from "@/lib/fantasy";
 import { fmt1, fmtPct } from "@/lib/stats";
 import { Seg } from "./ui";
 
@@ -83,6 +83,7 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Sezon boyunca maç başı puan (bizim hesabımız)">Sezon</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Oyuncuyu kadrosuna alan menajerlerin oranı">Seçilme</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Takımının son 5 maçından kaçında oynadı">Oynama</th>
+                <th scope="col" className="px-2 py-2.5 text-left font-medium sm:px-3" title="Fikstür zorluğu: rakibe göre takımın beklenen attığı ve yediği gol">Zorluk</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Takımının gol yememe olasılığı">Gol yememe</th>
                 <th scope="col" className="px-2 py-2.5 text-right font-medium sm:px-3" title="Seçili kadrodaki yeri">Kadro</th>
               </tr>
@@ -102,10 +103,18 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
                   <td className="px-2 py-2 text-right font-medium sm:px-3">{fmt1(c.xp)}</td>
                   <td className="px-2 py-2 text-right sm:px-3">{fmt1(c.cost)}M</td>
                   <td className="px-2 py-2 text-muted sm:px-3">{c.home ? "" : "@ "}{c.opp}</td>
-                  <td className="px-2 py-2 text-right text-muted sm:px-3">{fmt1(c.form)}</td>
+                  <td className="px-2 py-2 text-right text-muted sm:px-3">
+                    {fmt1(c.form)}
+                    {Math.abs(c.trend) >= 1 && (
+                      <span className={c.trend > 0 ? "text-good" : "text-bad"} title={`Sezon ortalamasından ${fmt1(Math.abs(c.trend))} puan ${c.trend > 0 ? "yukarıda" : "aşağıda"}`}>
+                        {c.trend > 0 ? " ▲" : " ▼"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{fmt1(c.season)}</td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">%{fmt1(c.selected)}</td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{fmtPct(c.play)}</td>
+                  <td className="px-2 py-2 sm:px-3"><DiffBadge diff={c.diff} /></td>
                   <td className="px-2 py-2 text-right text-muted sm:px-3">{c.pos <= 2 ? fmtPct(c.cs) : "–"}</td>
                   <td className="px-2 py-2 text-right text-xs text-muted sm:px-3">{role.get(c.id) ?? ""}</td>
                 </tr>
@@ -122,6 +131,7 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
           <li>Form: oyuncunun bu sezonki maç başı puan kalemleri; son 5 maç %60, sezonun tamamı %40 ağırlıklı.</li>
           <li>Rakip: gol ve asist puanı rakibin yediği gole, gol yememe puanı ve gol yeme cezası iki takımın gol ortalamalarına, kurtarış puanı rakibin isabetli şutuna göre ayarlanır.</li>
           <li>Oynama: oyuncu takımının son 5 maçının kaçında oynadıysa beklenen puan o oranla çarpılır. Resmi listede cezalı ya da sakat görünen oyuncu kadroya alınmaz.</li>
+          <li>Zorluk: takımın rakibe karşı beklenen attığı golün yiyeceği gole oranı; 1 çok kolay, 5 çok zor. Son 5 sütunundaki ▲/▼, son 5 maçın sezon ortalamasından en az 1 puan farklı olduğunu gösterir.</li>
           <li>Kaptan: ilk 11&apos;de beklenen puanı en yüksek oyuncu; puanı iki kez sayılır.</li>
           <li>Alternatifler: önceki kadrolarda yer alan oyuncuların ağırlığı azaltılarak kurulur. Sürpriz kadro yalnızca az seçilen oyunculardan oluşur.</li>
           <li>Hesaba girmeyenler: penaltı kurtarma ve kaçırma, kendi kalesine gol. Bonus puanı bizim hesabımıza göre verilir.</li>
@@ -130,6 +140,12 @@ export function FantasyView({ candidates, squads: all }: { candidates: Candidate
       </details>
     </div>
   );
+}
+
+const DIFF_TONE = ["", "bg-good text-white", "bg-good/70 text-white", "bg-raised text-ink ring-1 ring-hair", "bg-[#b7791f] text-white", "bg-bad text-white"];
+/** Fikstür zorluğu rozeti; hem sayı hem etiket yazılı, renk tek başına anlam taşımaz. */
+function DiffBadge({ diff }: { diff: number }) {
+  return <span className={`rounded px-1.5 text-xs font-medium leading-5 ${DIFF_TONE[diff]}`}>{diff} · {DIFF_LABEL[diff]}</span>;
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {

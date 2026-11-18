@@ -62,6 +62,10 @@ export type Candidate = {
   atk: number;
   /** Takımının gol yememe olasılığı. */
   cs: number;
+  /** Fikstür zorluğu: 1 çok kolay … 5 çok zor (takımın beklenen atacağı gole karşı yiyeceği gol). */
+  diff: number;
+  /** Son 5 maç ortalaması − sezon ortalaması; pozitif = formda. */
+  trend: number;
   /** Resmi listeden: fiyat (milyon TL), seçilme yüzdesi ve durum. */
   cost: number;
   selected: number;
@@ -85,6 +89,13 @@ export type FantasyInput = {
 };
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+
+/** Beklenen atılan/yenen gol oranından 1–5 zorluk puanı; oran 1 civarındaysa 3 (orta). */
+export function difficulty(expectedFor: number, expectedAgainst: number) {
+  const edge = Math.log(expectedFor / expectedAgainst);
+  return edge > 0.6 ? 1 : edge > 0.25 ? 2 : edge >= -0.25 ? 3 : edge >= -0.6 ? 4 : 5;
+}
+export const DIFF_LABEL = ["", "Çok kolay", "Kolay", "Orta", "Zor", "Çok zor"] as const;
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 // Form ağırlığı: son 5 maç %60, sezonun tamamı %40.
 const blend = (xs: number[]) => 0.6 * mean(xs.slice(0, 5)) + 0.4 * mean(xs);
@@ -151,6 +162,7 @@ export function project(
     const atk = clamp(opp.avgA.goals / avgGoals, 0.6, 1.6);
     const lambda = clamp((team.avgA.goals * opp.avgF.goals) / avgGoals, 0.3, 3.5);
     const cs = Math.exp(-lambda);
+    const lambdaFor = clamp((team.avgF.goals * opp.avgA.goals) / avgGoals, 0.3, 3.5);
     const p60 = blend(scored.map((x) => (x.g.minutes >= 60 ? 1 : 0)));
     const minuteShare = Math.min(1, blend(scored.map((x) => x.g.minutes)) / 90);
 
@@ -177,6 +189,7 @@ export function project(
       cost: p.tff.cost, selected: p.tff.selected, available, note,
       xp: play * perGame * chance, form: mean(pts.slice(0, 5)), season: mean(pts), games: pts.length,
       play, atk, cs, parts: xpParts,
+      diff: difficulty(lambdaFor, lambda), trend: mean(pts.slice(0, 5)) - mean(pts),
     });
   }
   return out.sort((a, b) => b.xp - a.xp);
